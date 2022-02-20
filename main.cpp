@@ -20,6 +20,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <cmath>
 
 using namespace std;
 
@@ -89,6 +90,13 @@ public:
     void MCwhitemove(int maxgamelength, int playouts);
 
     void cleverwhitemove();
+
+    double ratemove();
+
+    int canblackkingtake();
+
+    int bkspace();
+
 };//Chess
 
 //=================================================================
@@ -576,6 +584,7 @@ void Chess::MCwhitemove(int maxgamelength, int playouts) {
     int moves;
     int gamelength;
     int mcnrmoves;
+    int result;
     moves = numberofwhitemoves();
     int previousres = 0;
     int bestmove = 0;
@@ -583,10 +592,14 @@ void Chess::MCwhitemove(int maxgamelength, int playouts) {
         gamelength = 0;
         for (int j = 0; j < playouts; j++) {
             boardcopy = *this;
-            boardcopy.dowhitemove(i); //.doedeidemoce
-            if (boardcopy.playthegame(30, false, mcnrmoves, 0, 1) == 0) {
+            boardcopy.dowhitemove(i);
+            result = boardcopy.playthegame(30, false, mcnrmoves, 0, 1);
+            if (result == 0) {
                 gamelength += (100 - mcnrmoves);
             }
+//            else if(result == 2){
+//                gamelength -= 100;
+//            }
         }
         if (gamelength > previousres) {
             previousres = gamelength;
@@ -598,11 +611,93 @@ void Chess::MCwhitemove(int maxgamelength, int playouts) {
 
 }//Chess::MCwhitemove
 
+int Chess::canblackkingtake() {
+    int i, j;
+    for (i = -1; i <= 1; i++) {
+        for (j = -1; j <= 1; j++) {
+            if (legalforblackking(xBK + i, yBK + j)) {
+                if (xBK == xWQ && yBK == yWQ || xBK == xWK && yBK == yWK) {
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+
+double Chess::ratemove() {
+    double score = 0;
+    if (numberofblackmoves() == 0 and incheck(xBK, yBK)) {
+        return 99999;
+    }
+    if (canblackkingtake() != 0) { //
+        return 0;
+    }
+    //voorkom een stale mate en maak het "veld" zo klein mogelijk inclusief koning
+
+    //todo minimalizeer stappen die BK kan doen
+    //todo voorkom stalemate
+    //todo voorkom simple tie
+//    score += 100 - sqrt(pow(abs(xBK - xWK), 2) + pow(abs(yBK - yWK), 2));
+    score += 100 - 10 * numberofblackmoves();
+    score += 1000 - bkspace();     //todo calculate field size en minimaal veld waar BK heen kan
+    cout << score << endl;
+    return score;
+}
+
 // do one clever move for white
 void Chess::cleverwhitemove() {
-    // TODO
-    dowhitemove(0); // not so clever ...
-}//Chess::cleverwhitemove
+    Chess boardcopy;
+    int moves;
+    int bestmove = 0;
+    int bestscore = 0;
+    int score;
+    moves = numberofwhitemoves();
+    for (int i = 0; i < moves; i++) {
+        boardcopy = *this;
+        boardcopy.dowhitemove(i);
+        score = ratemove();
+        if (score >= bestscore) {
+            if (score == bestscore) {
+                if (rand() % 2 == 0) {
+                    bestmove = i;
+                }
+            } else {
+                bestmove = i;
+            }
+            bestscore = score;
+            cout << "New max score1: " << score << " with move: " << bestmove << endl;
+        }
+    }
+    dowhitemove(bestmove); // not so clever ...
+}
+
+int Chess::bkspace() {
+    if (xBK == xWQ) {
+        if (yBK > yWQ) {
+            return thesize * (yWQ - thesize - 1);               //todo check board origin
+        } else {
+            return thesize * (yWQ - 1);                         //todo check board origin
+        }
+    } else if (yBK == xWQ) {
+        if (xBK > xWQ) {
+            return thesize * (xWQ - thesize - 1);               //todo check board origin
+        } else {
+            return thesize * (xWQ - 1);                         //todo check board origin
+        }
+    } else if (xBK < xWQ and yBK < yWQ) {
+        return (thesize - xWQ - 1) * (thesize - yWQ - 1);       //todo check board origin
+    } else if (xBK < xWQ and yBK > yWQ) {
+        return (thesize - xWQ - 1) * (yWQ - 1);                 //todo check board origin
+    } else if (xBK > xWQ and yBK < yWQ) {
+        return (xWQ - 1) * (thesize - yWQ - 1);                 //todo check board origin
+    } else if (xBK > xWQ and yBK > yWQ) {
+        return (xWQ - 1) * (yWQ - 1);                           //todo check board origin
+    }
+    return 0;
+}
+//Chess::cleverwhitemove
 
 // main program
 int main(int argc, char *argv[]) {
