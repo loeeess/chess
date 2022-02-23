@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
+#include <vector>
 
 using namespace std;
 
@@ -38,6 +39,9 @@ public:
     int countmoves;      // number of moves so far
     bool queenorrook;    // true: white queen; false: white rook
     static int thecalls; // calls to evaluate
+
+
+
     // member functions, see below for comments
     Chess();
 
@@ -91,11 +95,13 @@ public:
 
     void cleverwhitemove();
 
-    double ratemove();
+    double rategamestate();
 
     int canblackkingtake();
 
     int bkspace();
+
+    double kingseperation();
 
 };//Chess
 
@@ -520,6 +526,10 @@ void Chess::printboard() {
         }//for
         cout << endl;
     }//for
+    cout << "BKSpace:" << bkspace() << endl;
+    cout << "KingSeperation:" << kingseperation() << endl;
+    cout << "NumberOfBlackMoves:" << numberofblackmoves() << endl;
+    cout << "Score: " << rategamestate() << endl;
     cout << endl;
 }//Chess::printboard
 
@@ -616,7 +626,7 @@ int Chess::canblackkingtake() {
     for (i = -1; i <= 1; i++) {
         for (j = -1; j <= 1; j++) {
             if (legalforblackking(xBK + i, yBK + j)) {
-                if (xBK == xWQ && yBK == yWQ || xBK == xWK && yBK == yWK) {
+                if (xBK + i == xWQ && yBK + j == yWQ || xBK + i == xWK && yBK + j == yWK) {
                     return 1;
                 }
             }
@@ -626,23 +636,39 @@ int Chess::canblackkingtake() {
 }
 
 
-double Chess::ratemove() {
+double Chess::rategamestate() {
     double score = 0;
     if (numberofblackmoves() == 0 and incheck(xBK, yBK)) {
-        return 99999;
+        return 99999; //if a move wins the game, do the move
+    } else if (canblackkingtake() != 0) {
+        return -1000; //prevent simple tie by checking if BK can take a piece
+    } else if (numberofblackmoves() == 0 and !incheck(xBK, yBK)) {
+        return -1000; //prevent stalemate by checking if the BK can move when he is not in check
     }
-    if (canblackkingtake() != 0) { //
-        return 0;
-    }
-    //voorkom een stale mate en maak het "veld" zo klein mogelijk inclusief koning
 
-    //todo minimalizeer stappen die BK kan doen
-    //todo voorkom stalemate
-    //todo voorkom simple tie
-//    score += 100 - sqrt(pow(abs(xBK - xWK), 2) + pow(abs(yBK - yWK), 2));
-    score += 100 - 10 * numberofblackmoves();
-    score += 1000 - bkspace();     //todo calculate field size en minimaal veld waar BK heen kan
-    cout << score << endl;
+    int BKMoves = bkspace();
+    double KingSep = kingseperation();
+    double BaseKingSepScore = 50-KingSep;
+
+    /// ---- Relative Strategy -----
+//    score += 1000 - BKMoves;
+//    score += BaseKingSepScore +(2*(500-BKMoves));
+//    score += 10-numberofblackmoves();
+
+    /// ---- Expanded strategy ----
+//    int a=1;
+//    int x = bkspace();
+//    if(x<=3) {
+//        a = 10;
+//    }
+//    score += 1000 - x;          //1000 want 30x30=900 (max veld grootte)
+//    score += 50 - kingseperation()*a;     //50 want sqrt(30^2+30^3)=42
+//    score += 10 - numberofblackmoves(); //10 want max(NumberOfBlackMoves) = 9
+
+    /// ----standard strategy----
+    score += 1000 - bkspace();
+    score += 50 - kingseperation();
+    score += 10 -numberofblackmoves();
     return score;
 }
 
@@ -650,54 +676,49 @@ double Chess::ratemove() {
 void Chess::cleverwhitemove() {
     Chess boardcopy;
     int moves;
-    int bestmove = 0;
-    int bestscore = 0;
-    int score;
+    int initialmove = 0;//rand() % numberofwhitemoves(); //pick a random move as initial move
+    // todo check wat beter is, random of 0 (zou geen effect meer moeten hebben maar heeft het wel) misschien komt het door 1 extra keer random te callen, (hierdoor is de "seed" anders))
+    vector<int> bestmove;
+//    bestmove.push_back(initialmove);
+    double bestscore = 0;
+    double movescore;
     moves = numberofwhitemoves();
     for (int i = 0; i < moves; i++) {
         boardcopy = *this;
         boardcopy.dowhitemove(i);
-        score = ratemove();
-        if (score >= bestscore) {
-            if (score == bestscore) {
-                if (rand() % 2 == 0) {
-                    bestmove = i;
-                }
-            } else {
-                bestmove = i;
-            }
-            bestscore = score;
-            cout << "New max score1: " << score << " with move: " << bestmove << endl;
+        movescore = boardcopy.rategamestate();
+        if (movescore >= bestscore) {
+            if (movescore == bestscore) { bestmove.clear(); }
+            bestmove.push_back(i);                              //todo revert back to the old coinflip method, that performed much more predicatble
+            bestscore = movescore;
         }
+//            cout << "New max score1: " << movescore << " with move: " << bestmove << endl;
     }
-    dowhitemove(bestmove); // not so clever ...
+    int finalmove = bestmove[rand()%bestmove.size()];
+    dowhitemove(finalmove);
 }
 
 int Chess::bkspace() {
-    if (xBK == xWQ) {
-        if (yBK > yWQ) {
-            return thesize * (yWQ - thesize - 1);               //todo check board origin
-        } else {
-            return thesize * (yWQ - 1);                         //todo check board origin
-        }
-    } else if (yBK == xWQ) {
-        if (xBK > xWQ) {
-            return thesize * (xWQ - thesize - 1);               //todo check board origin
-        } else {
-            return thesize * (xWQ - 1);                         //todo check board origin
-        }
-    } else if (xBK < xWQ and yBK < yWQ) {
-        return (thesize - xWQ - 1) * (thesize - yWQ - 1);       //todo check board origin
-    } else if (xBK < xWQ and yBK > yWQ) {
-        return (thesize - xWQ - 1) * (yWQ - 1);                 //todo check board origin
-    } else if (xBK > xWQ and yBK < yWQ) {
-        return (xWQ - 1) * (thesize - yWQ - 1);                 //todo check board origin
-    } else if (xBK > xWQ and yBK > yWQ) {
-        return (xWQ - 1) * (yWQ - 1);                           //todo check board origin
-    }
-    return 0;
+    int x_space;
+    int y_space;
+    //Determine free space in x-direction
+    if (xBK < xWQ) { x_space = xWQ - 1; }
+    else if (xBK > xWQ) { x_space = thesize - xWQ; }
+    else { x_space = thesize; }
+    //Determine free space in y-direction
+    if (yBK < yWQ) { y_space = yWQ - 1; }
+    else if (yBK > yWQ) { y_space = thesize - yWQ; }
+    else { y_space = thesize; }
+    //Return Area
+    return x_space * y_space;
+}
+
+double Chess::kingseperation() {
+    return sqrt(pow(abs(xBK - xWK), 2) + pow(abs(yBK - yWK), 2));
 }
 //Chess::cleverwhitemove
+
+
 
 // main program
 int main(int argc, char *argv[]) {
