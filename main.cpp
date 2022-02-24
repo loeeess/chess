@@ -121,7 +121,12 @@ int Chess::thecalls = 0;
 
 // default constructor
 Chess::Chess() {
-    // nothing
+    xBK = 3;
+    yBK = 1;
+    xWK = 2;
+    yWK = 3;
+    xWQ = 3;
+    yWQ = 2;
 }//Chess::Chess
 
 // reset the whole game
@@ -579,8 +584,7 @@ int Chess::playthegame(int maxgamelength, bool print,
                 themove = 0;
             else if (whoistomove) {
                 themove = 3;
-            }
-            else { themove = 1; }
+            } else { themove = 1; }
         }//if
     }//if
     nrmoves = countmoves;
@@ -646,45 +650,17 @@ double Chess::rategamestate() {
         return -1000; //prevent simple tie by checking if BK can take a piece
     } else if (numberofblackmoves() == 0 and !incheck(xBK, yBK)) {
         return -1000; //prevent stalemate by checking if the BK can move when he is not in check
+    } else if (queenorrook && (xWQ == thesize-2 || xWQ == 3) && (yWQ==thesize-2 || yWQ == 3) ){
+        return -1000;
     }
+    int bks = bkspace();
+    if (queenorrook && bks < 3) { bks = 4; } //todo mee spelen
+    else if (!queenorrook && bks < 4) { bks = 4; }
 
+    score += 1000 - bks;                    //1000 want 30x30=900 (max veld grootte)
+    score += 200 - 4 * kingseperation();    //50 want sqrt(30^2+30^3)=42 * 4 want kinseperation is belangrijker
+    score += 10 - numberofblackmoves();       //10 want max(NumberOfBlackMoves) = 9
 
-
-    /// ---- Relative Strategy -----
-//    int BKMoves = bkspace();
-//    double KingSep = kingseperation();
-//    double BaseKingSepScore = 50-KingSep;
-//    score += 1000 - BKMoves;
-//    score += BaseKingSepScore +(2*(500-BKMoves));
-//    score += 10-numberofblackmoves();
-
-    /// ---- Expanded strategy ----
-//    int a=1;
-//    int x = bkspace();
-//    if(x<=3) {
-//        a = 10;
-//    }
-//    score += 1000 - x;
-//    score += 50 - kingseperation()*a;
-//    score += 10 - numberofblackmoves();
-    /// ---- Expanded Strategy 2 ----
-    int a=1;
-    int x = bkspace();
-    if(x<=3) {
-        a = 10;
-    }
-    score += 1000 - x;
-    score += 50 - kingseperation()*a;
-    score += 10 - numberofblackmoves();
-
-    /// ----Standard strategy----
-//    score += 1000 - bkspace();                //1000 want 30x30=900 (max veld grootte)
-//    score += 50 - kingseperation();           //50 want sqrt(30^2+30^3)=42
-//    score += 10 - numberofblackmoves();       //10 want max(NumberOfBlackMoves) = 9
-
-    /// ----Minimal strategy----
-//    score += 1000 - bkspace();                //1000 want 30x30=900 (max veld grootte)
-//    score += 50 - kingseperation();           //50 want sqrt(30^2+30^3)=42
     return score;
 }
 
@@ -718,6 +694,7 @@ void Chess::cleverwhitemove() {
     }
     dowhitemove(bestmove); // not so clever ...
 }
+
 
 int Chess::bkspace() {
     int x_space;
@@ -780,8 +757,9 @@ int main(int argc, char *argv[]) {
     stats[0] = stats[1] = stats[2] = stats[3] = stats[4] = 0;
     for (i = 0; i < simulations; i++) {
         theboard.reset(somesize, queenorrook);
-        stats[theboard.playthegame(maxgamelength, print, nrmoves,
-                                   gametypeW, gametypeB)]++;
+        int index = theboard.playthegame(maxgamelength, print, nrmoves,
+                                         gametypeW, gametypeB);
+        stats[index]++;
         stats[4] += nrmoves;
     }//for
     cout << "Board size:          " << somesize
