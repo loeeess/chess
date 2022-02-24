@@ -644,11 +644,11 @@ int Chess::canblackkingtake() {
 
 double Chess::rategamestate() {
     double score = 0;
-    if (numberofblackmoves() == 0 and incheck(xBK, yBK)) {
+    if (numberofblackmoves() == 0 && incheck(xBK, yBK)) {
         return 99999; //if a move wins the game, do the move
     } else if (canblackkingtake() != 0) {
         return -1000; //prevent simple tie by checking if BK can take a piece
-    } else if (numberofblackmoves() == 0 and !incheck(xBK, yBK)) {
+    } else if (numberofblackmoves() == 0 && !incheck(xBK, yBK)) {
         return -1000; //prevent stalemate by checking if the BK can move when he is not in check
     } else if (queenorrook && (xWQ == thesize-2 || xWQ == 3) && (yWQ==thesize-2 || yWQ == 3) ){
         return -1000;
