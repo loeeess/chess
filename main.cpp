@@ -577,8 +577,10 @@ int Chess::playthegame(int maxgamelength, bool print,
         else if (numberofblackmoves() == 0) {
             if (incheck(xBK, yBK))
                 themove = 0;
-            else
-                themove = 1;
+            else if (whoistomove) {
+                themove = 3;
+            }
+            else { themove = 1; }
         }//if
     }//if
     nrmoves = countmoves;
@@ -646,11 +648,12 @@ double Chess::rategamestate() {
         return -1000; //prevent stalemate by checking if the BK can move when he is not in check
     }
 
-    int BKMoves = bkspace();
-    double KingSep = kingseperation();
-    double BaseKingSepScore = 50-KingSep;
+
 
     /// ---- Relative Strategy -----
+//    int BKMoves = bkspace();
+//    double KingSep = kingseperation();
+//    double BaseKingSepScore = 50-KingSep;
 //    score += 1000 - BKMoves;
 //    score += BaseKingSepScore +(2*(500-BKMoves));
 //    score += 10-numberofblackmoves();
@@ -661,14 +664,27 @@ double Chess::rategamestate() {
 //    if(x<=3) {
 //        a = 10;
 //    }
-//    score += 1000 - x;          //1000 want 30x30=900 (max veld grootte)
-//    score += 50 - kingseperation()*a;     //50 want sqrt(30^2+30^3)=42
-//    score += 10 - numberofblackmoves(); //10 want max(NumberOfBlackMoves) = 9
+//    score += 1000 - x;
+//    score += 50 - kingseperation()*a;
+//    score += 10 - numberofblackmoves();
+    /// ---- Expanded Strategy 2 ----
+    int a=1;
+    int x = bkspace();
+    if(x<=3) {
+        a = 10;
+    }
+    score += 1000 - x;
+    score += 50 - kingseperation()*a;
+    score += 10 - numberofblackmoves();
 
-    /// ----standard strategy----
-    score += 1000 - bkspace();
-    score += 50 - kingseperation();
-    score += 10 -numberofblackmoves();
+    /// ----Standard strategy----
+//    score += 1000 - bkspace();                //1000 want 30x30=900 (max veld grootte)
+//    score += 50 - kingseperation();           //50 want sqrt(30^2+30^3)=42
+//    score += 10 - numberofblackmoves();       //10 want max(NumberOfBlackMoves) = 9
+
+    /// ----Minimal strategy----
+//    score += 1000 - bkspace();                //1000 want 30x30=900 (max veld grootte)
+//    score += 50 - kingseperation();           //50 want sqrt(30^2+30^3)=42
     return score;
 }
 
@@ -678,7 +694,8 @@ void Chess::cleverwhitemove() {
     int moves;
     int initialmove = 0;//rand() % numberofwhitemoves(); //pick a random move as initial move
     // todo check wat beter is, random of 0 (zou geen effect meer moeten hebben maar heeft het wel) misschien komt het door 1 extra keer random te callen, (hierdoor is de "seed" anders))
-    vector<int> bestmove;
+    double bestmove = initialmove;
+    //   vector<int> bestmove;
 //    bestmove.push_back(initialmove);
     double bestscore = 0;
     double movescore;
@@ -688,14 +705,18 @@ void Chess::cleverwhitemove() {
         boardcopy.dowhitemove(i);
         movescore = boardcopy.rategamestate();
         if (movescore >= bestscore) {
-            if (movescore == bestscore) { bestmove.clear(); }
-            bestmove.push_back(i);                              //todo revert back to the old coinflip method, that performed much more predicatble
+            if (movescore == bestscore) {
+                if (rand() % 2 == 0) {
+                    bestmove = i;
+                }
+            } else {
+                bestmove = i;
+            }
             bestscore = movescore;
         }
 //            cout << "New max score1: " << movescore << " with move: " << bestmove << endl;
     }
-    int finalmove = bestmove[rand()%bestmove.size()];
-    dowhitemove(finalmove);
+    dowhitemove(bestmove); // not so clever ...
 }
 
 int Chess::bkspace() {
